@@ -1,0 +1,34 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- círculo fino exterior (estilo Centro de Control) -->
+    <path
+        android:strokeColor="#FF9A3D"
+        android:strokeWidth="2.4"
+        android:fillColor="#00000000"
+        android:pathData="M54,20 a34,34 0 1,0 0.01,0 Z" />
+
+    <!-- marcador de ubicación facetado (línea) -->
+    <group>
+        <path
+            android:strokeColor="#FF9A3D"
+            android:strokeWidth="3"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000"
+            android:pathData="M54,31 L38,45 L42,62 L54,81 L66,62 L70,45 Z" />
+        <path
+            android:strokeColor="#FF9A3D"
+            android:strokeWidth="2.2"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000"
+            android:pathData="M54,31 L54,81 M38,45 L54,56 L70,45 M42,62 L54,56 L66,62" />
+        <!-- punto "aquí estás" -->
+        <path
+            android:fillColor="#FFB86C"
+            android:pathData="M54,44 m-4.5,0 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0 Z" />
+    </group>
+</vector>
