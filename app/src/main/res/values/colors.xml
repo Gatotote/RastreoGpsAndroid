@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="teal">#205C5A</color>
+    <color name="teal_oscuro">#123837</color>
+    <color name="fondo">#EEF2ED</color>
+    <color name="fondo_oscuro">#1B1B21</color>
+    <color name="marca_yo">#C1553B</color>
+    <color name="marca_otro">#205C5A</color>
+</resources>

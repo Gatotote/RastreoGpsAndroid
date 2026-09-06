@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Rastreo GPS</string>
+    <string name="notificacion_titulo">Compartiendo ubicación</string>
+    <string name="notificacion_texto">Los demás celulares con la app pueden verte.</string>
+</resources>
