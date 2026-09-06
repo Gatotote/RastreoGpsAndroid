@@ -77,6 +77,7 @@ private val Claro = lightColorScheme(
 fun RastreoTheme(oscuro: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (oscuro) Oscuro else Claro,
+        typography = RastreoTipografia,
         content = content,
     )
 }
