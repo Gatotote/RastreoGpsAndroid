@@ -4,6 +4,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class Repositorio(
     private val preferencias: Preferencias,
@@ -11,6 +13,11 @@ class Repositorio(
 ) {
     private val _dispositivos = MutableStateFlow<List<DispositivoDto>>(emptyList())
     val dispositivos: StateFlow<List<DispositivoDto>> = _dispositivos.asStateFlow()
+
+    // El registro corre una sola vez; enviarUbicacion() lo espera antes del PUT,
+    // así el servidor nunca recibe una ubicación de un celular sin registrar (404).
+    private val registroMutex = Mutex()
+    private var registrado = false
 
     private val _etiquetas = MutableStateFlow<List<EtiquetaDto>>(emptyList())
     val etiquetas: StateFlow<List<EtiquetaDto>> = _etiquetas.asStateFlow()
@@ -22,63 +29,90 @@ class Repositorio(
     val conectado: StateFlow<Boolean> = _conectado.asStateFlow()
 
     suspend fun registrarSiHaceFalta() {
-        val usuario = preferencias.asegurarUsuario()
-        try {
-            api.registrar(
-                usuario.servidorUrl,
-                RegistroRequest(id = usuario.id, nombre = usuario.nombre, modelo = usuario.modelo),
-            )
-            _conectado.value = true
-            _errorRed.value = null
-        } catch (e: Exception) {
-            _conectado.value = false
-            _errorRed.value = e.message ?: "No se pudo registrar este celular"
+        registroMutex.withLock {
+            if (registrado) return
+            val usuario = preferencias.asegurarUsuario()
+            try {
+                api.registrar(
+                    usuario.servidorUrl,
+                    RegistroRequest(id = usuario.id, nombre = usuario.nombre, modelo = usuario.modelo),
+                )
+                registrado = true
+                _conectado.value = true
+                _errorRed.value = null
+            } catch (e: Exception) {
+                _conectado.value = false
+                _errorRed.value = e.message ?: "No se pudo registrar este celular"
+            }
         }
+    }
+
+    private suspend fun forzarReRegistro() {
+        registroMutex.withLock { registrado = false }
+        registrarSiHaceFalta()
     }
 
     suspend fun actualizarNombre(nombre: String) {
         preferencias.guardarNombre(nombre)
-        registrarSiHaceFalta()
+        forzarReRegistro()
     }
 
     suspend fun actualizarServidor(url: String) {
         preferencias.guardarServidor(url)
-        registrarSiHaceFalta()
+        forzarReRegistro()
         refrescar()
     }
 
     suspend fun enviarUbicacion(lat: Double, lng: Double, precision: Double?) {
+        registrarSiHaceFalta() // bloquea hasta que el registro en curso termine (ok o falle)
         val usuario = preferencias.asegurarUsuario()
+
+        fun guardarLocal() = mezclar(
+            DispositivoDto(
+                id = usuario.id, nombre = usuario.nombre, modelo = usuario.modelo,
+                lat = lat, lng = lng, precision = precision,
+                actualizado = System.currentTimeMillis(), enLinea = true,
+            ),
+        )
+
+        // Si el registro aún no está confirmado, NO se manda el PUT (así el servidor
+        // nunca ve una ubicación de un celular sin registrar → nunca hay 404).
+        // El siguiente sondeo / la siguiente ubicación reintentará el registro.
+        if (!registrado) {
+            _conectado.value = false
+            guardarLocal()
+            return
+        }
+
+        val cuerpo = UbicacionRequest(lat = lat, lng = lng, precision = precision)
         try {
-            val propio = api.enviarUbicacion(
-                usuario.servidorUrl,
-                usuario.id,
-                UbicacionRequest(lat = lat, lng = lng, precision = precision),
-            )
+            mezclar(api.enviarUbicacion(usuario.servidorUrl, usuario.id, cuerpo))
             _conectado.value = true
             _errorRed.value = null
-            mezclar(propio)
         } catch (e: Exception) {
+            // El servidor perdió el registro (BD reiniciada): re-registra y reintenta una vez.
+            if ((e.message ?: "").contains("404")) {
+                forzarReRegistro()
+                if (registrado) {
+                    try {
+                        mezclar(api.enviarUbicacion(usuario.servidorUrl, usuario.id, cuerpo))
+                        _conectado.value = true
+                        _errorRed.value = null
+                        return
+                    } catch (_: Exception) {
+                    }
+                }
+            }
             _conectado.value = false
             _errorRed.value = e.message ?: "No se pudo enviar la ubicación"
-            mezclar(
-                DispositivoDto(
-                    id = usuario.id,
-                    nombre = usuario.nombre,
-                    modelo = usuario.modelo,
-                    lat = lat,
-                    lng = lng,
-                    precision = precision,
-                    actualizado = System.currentTimeMillis(),
-                    enLinea = true,
-                ),
-            )
+            guardarLocal()
         }
     }
 
     suspend fun refrescar() {
         val usuario = preferencias.usuario.first()
         if (usuario.id.isBlank()) return
+        if (!registrado) registrarSiHaceFalta() // reintenta el registro en cada sondeo hasta que pegue
         try {
             _dispositivos.value = api.listar(usuario.servidorUrl)
             _etiquetas.value = api.listarEtiquetas(usuario.servidorUrl)
@@ -112,8 +146,9 @@ class Repositorio(
 
     /** Un celular reporta que vio una baliza; su posición pasa a ser la de este celular. */
     suspend fun reportarVistaEtiqueta(baliza: BaliceDetectada, lat: Double, lng: Double, precision: Double?) {
-        val usuario = preferencias.usuario.first()
         if (_etiquetas.value.none { it.id.equals(baliza.id, ignoreCase = true) }) return
+        registrarSiHaceFalta()
+        val usuario = preferencias.usuario.first()
         try {
             api.reportarVista(
                 usuario.servidorUrl,
