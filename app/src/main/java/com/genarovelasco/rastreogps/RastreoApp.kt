@@ -17,7 +17,9 @@ class RastreoApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Configuration.getInstance().load(this, getSharedPreferences("osmdroid", MODE_PRIVATE))
-        Configuration.getInstance().userAgentValue = packageName
+        // OSM exige un User-Agent identificable; el nombre de paquete a secas hace
+        // que sus servidores limiten la carga de teselas.
+        Configuration.getInstance().userAgentValue = "RastreoGPS/1.0 ($packageName)"
         preferencias = Preferencias(this)
         repositorio = Repositorio(preferencias)
         escaner = EscanerBle(this)

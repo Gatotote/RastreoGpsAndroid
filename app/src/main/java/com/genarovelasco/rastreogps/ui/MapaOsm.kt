@@ -1,5 +1,7 @@
 package com.genarovelasco.rastreogps.ui
 
+import android.graphics.Color
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -14,20 +16,20 @@ import com.genarovelasco.rastreogps.R
 import com.genarovelasco.rastreogps.data.DispositivoDto
 import com.genarovelasco.rastreogps.data.EtiquetaDto
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 
-// Teselas oscuras de CARTO (uso ligero; requiere atribución OSM + CARTO).
-private val CartoOscuro = XYTileSource(
-    "CartoDarkAll", 3, 20, 256, ".png",
-    arrayOf(
-        "https://a.basemaps.cartocdn.com/dark_all/",
-        "https://b.basemaps.cartocdn.com/dark_all/",
-        "https://c.basemaps.cartocdn.com/dark_all/",
+// Modo oscuro sin depender de teselas con API key: se filtran las de OSM.
+// Invierte la luminancia manteniendo el tono (calles claras, fondo oscuro,
+// parques verdosos, agua azulada). Filtro estándar de osmdroid para dark mode.
+private val FiltroOscuro = ColorMatrixColorFilter(
+    floatArrayOf(
+        -0.66f, -0.30f, -0.036f, 0f, 245f,
+        -0.30f, -0.66f, -0.036f, 0f, 245f,
+        -0.30f, -0.30f, -0.66f, 0f, 245f,
+        0f, 0f, 0f, 1f, 0f,
     ),
-    "© OpenStreetMap, © CARTO",
 )
 
 @Composable
@@ -44,7 +46,7 @@ fun MapaOsm(
     val control = remember { ControlMapa() }
     val mapa = remember {
         MapView(context).apply {
-            setTileSource(if (oscuro) CartoOscuro else TileSourceFactory.MAPNIK)
+            setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             minZoomLevel = 4.0
             maxZoomLevel = 20.0
@@ -54,7 +56,14 @@ fun MapaOsm(
     }
 
     LaunchedEffect(oscuro) {
-        mapa.setTileSource(if (oscuro) CartoOscuro else TileSourceFactory.MAPNIK)
+        val fondo = if (oscuro) 0xFF1B1B21.toInt() else 0xFFEDE9E0.toInt()
+        mapa.setBackgroundColor(fondo)
+        mapa.overlayManager.tilesOverlay.apply {
+            setColorFilter(if (oscuro) FiltroOscuro else null)
+            // Sin la cuadrícula gris mientras cargan: se ve el fondo del mapa.
+            loadingBackgroundColor = Color.TRANSPARENT
+            loadingLineColor = Color.TRANSPARENT
+        }
         mapa.invalidate()
     }
 

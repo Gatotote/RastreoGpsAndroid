@@ -223,7 +223,7 @@ private fun BotonGradiente(
             .clip(RoundedCornerShape(16.dp))
             .background(RastreoGradiente)
             .clickable(onClick = onClick)
-            .padding(vertical = 15.dp),
+            .padding(horizontal = 24.dp, vertical = 15.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(texto, color = RastreoGradienteInk, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
@@ -346,14 +346,20 @@ private fun ListaCuerpo(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
+            Text("Celulares", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
             Text(
                 "Solo aparecen celulares con esta app instalada.",
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         if (estado.dispositivos.isEmpty()) {
             item {
-                Text("Aún no hay nadie en la red. Instala la app en otro celular o revisa la IP del servidor.")
+                Text(
+                    "Aún no hay nadie en la red. Instala la app en otro celular o revisa la IP del servidor.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         items(estado.dispositivos, key = { it.id }) { dispositivo ->
@@ -491,9 +497,12 @@ private fun EtiquetasCuerpo(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
+            Text("Etiquetas", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
             Text(
                 "Etiquetas Bluetooth (iBeacon). Su posición es la del último celular que las detectó.",
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         item {
@@ -652,15 +661,23 @@ private fun AjustesCuerpo(
             .fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Cada instalación crea un usuario nuevo para ese celular. Si desinstalas y vuelves a instalar, serás otro.")
+        Text("Ajustes", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Cada instalación crea un usuario nuevo para ese celular. Si desinstalas y vuelves a instalar, serás otro.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         OutlinedTextField(
             value = nombre,
             onValueChange = { nombre = it },
             label = { Text("Nombre de este celular") },
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = { onGuardarNombre(nombre) }) { Text("Guardar nombre") }
-        Text("ID de este celular: ${usuario?.idCorto ?: "…"}", style = MaterialTheme.typography.bodyMedium)
+        BotonGradiente("Guardar nombre", { onGuardarNombre(nombre) })
+        Text(
+            "ID de este celular: ${usuario?.idCorto ?: "…"}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         OutlinedTextField(
             value = servidor,
             onValueChange = { servidor = it },
@@ -668,10 +685,10 @@ private fun AjustesCuerpo(
             supportingText = { Text("Ejemplo: http://192.168.1.20:8080  (la IP que imprime el servidor en la PC)") },
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = { onGuardarServidor(servidor) }) { Text("Guardar servidor") }
+        BotonGradiente("Guardar servidor", { onGuardarServidor(servidor) })
         Text(
             if (estado.conectado) "Conectado a la red de la app." else "Sin conexión. El servidor debe estar encendido en la misma red Wi‑Fi.",
-            color = if (estado.conectado) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+            color = if (estado.conectado) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
         )
     }
 }
