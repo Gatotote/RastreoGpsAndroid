@@ -28,3 +28,7 @@ venv/
 
 # NDK
 obj/
+
+# Logs de runtime
+*.log
+servidor/*.log
