@@ -116,6 +116,7 @@ class Repositorio(
         try {
             _dispositivos.value = api.listar(usuario.servidorUrl)
             _etiquetas.value = api.listarEtiquetas(usuario.servidorUrl)
+            if (registrado) runCatching { api.latido(usuario.servidorUrl, usuario.id) }
             _conectado.value = true
             _errorRed.value = null
         } catch (e: Exception) {

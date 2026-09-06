@@ -34,6 +34,19 @@ class RastreoApi {
         json.decodeFromString(ListaEtiquetasDto.serializer(), respuesta).etiquetas
     }
 
+    /** Latido: avisa al servidor que este celular sigue conectado aunque no se mueva. */
+    suspend fun latido(baseUrl: String, id: String) {
+        withContext(Dispatchers.IO) {
+            ejecutar(
+                Request.Builder()
+                    .url(url(baseUrl, "/api/dispositivos/$id/latido"))
+                    .header("X-Codigo-Red", Preferencias.CODIGO_RED)
+                    .post("".toRequestBody(mediaJson))
+                    .build(),
+            )
+        }
+    }
+
     suspend fun registrarEtiqueta(baseUrl: String, body: RegistroEtiquetaRequest): EtiquetaDto =
         withContext(Dispatchers.IO) {
             val respuesta = ejecutar(

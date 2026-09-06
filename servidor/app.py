@@ -46,10 +46,14 @@ def init_db() -> None:
                 lat REAL,
                 lng REAL,
                 precision REAL,
-                actualizado INTEGER
+                actualizado INTEGER,   -- última ubicación (para "hace X min")
+                visto INTEGER          -- último contacto de cualquier tipo (para "en línea")
             )
             """
         )
+        cols = {r[1] for r in db.execute("PRAGMA table_info(dispositivos)")}
+        if "visto" not in cols:  # BD antigua: añade la columna
+            db.execute("ALTER TABLE dispositivos ADD COLUMN visto INTEGER")
         db.execute(
             """
             CREATE TABLE IF NOT EXISTS etiquetas (
@@ -78,7 +82,10 @@ def codigo_valido() -> bool:
 def fila_a_dict(row: sqlite3.Row) -> dict:
     ahora = int(time.time() * 1000)
     actualizado = row["actualizado"]
-    en_linea = bool(actualizado and (ahora - actualizado) <= EN_LINEA_MS)
+    visto = row["visto"] if "visto" in row.keys() else None
+    # "En línea" = tuvimos contacto reciente (ubicación O latido), no solo movimiento.
+    ref = max((t for t in (actualizado, visto) if t), default=None)
+    en_linea = bool(ref and (ahora - ref) <= EN_LINEA_MS)
     return {
         "id": row["id"],
         "nombre": row["nombre"],
@@ -87,6 +94,7 @@ def fila_a_dict(row: sqlite3.Row) -> dict:
         "lng": row["lng"],
         "precision": row["precision"],
         "actualizado": actualizado,
+        "visto": visto,
         "enLinea": en_linea,
     }
 
@@ -147,19 +155,20 @@ def registrar():
     modelo = str(datos.get("modelo", "")).strip()
     if not dispositivo_id:
         return jsonify({"error": "falta id"}), 400
+    ahora = int(time.time() * 1000)
     db = get_db()
     existente = db.execute(
         "SELECT * FROM dispositivos WHERE id = ?", (dispositivo_id,)
     ).fetchone()
     if existente:
         db.execute(
-            "UPDATE dispositivos SET nombre = ?, modelo = ? WHERE id = ?",
-            (nombre, modelo or existente["modelo"], dispositivo_id),
+            "UPDATE dispositivos SET nombre = ?, modelo = ?, visto = ? WHERE id = ?",
+            (nombre, modelo or existente["modelo"], ahora, dispositivo_id),
         )
     else:
         db.execute(
-            "INSERT INTO dispositivos (id, nombre, modelo) VALUES (?, ?, ?)",
-            (dispositivo_id, nombre, modelo),
+            "INSERT INTO dispositivos (id, nombre, modelo, visto) VALUES (?, ?, ?, ?)",
+            (dispositivo_id, nombre, modelo, ahora),
         )
     db.commit()
     row = db.execute(
@@ -193,16 +202,32 @@ def ubicacion(dispositivo_id: str):
     db.execute(
         """
         UPDATE dispositivos
-        SET lat = ?, lng = ?, precision = ?, actualizado = ?
+        SET lat = ?, lng = ?, precision = ?, actualizado = ?, visto = ?
         WHERE id = ?
         """,
-        (lat, lng, precision_val, ahora, dispositivo_id),
+        (lat, lng, precision_val, ahora, ahora, dispositivo_id),
     )
     db.commit()
     row = db.execute(
         "SELECT * FROM dispositivos WHERE id = ?", (dispositivo_id,)
     ).fetchone()
     return jsonify(fila_a_dict(row))
+
+
+@app.post("/api/dispositivos/<dispositivo_id>/latido")
+def latido(dispositivo_id: str):
+    """El celular avisa que sigue conectado, aunque no se haya movido."""
+    if not codigo_valido():
+        return jsonify({"error": "codigo de red invalido"}), 403
+    db = get_db()
+    if not db.execute("SELECT 1 FROM dispositivos WHERE id = ?", (dispositivo_id,)).fetchone():
+        return jsonify({"error": "dispositivo no registrado"}), 404
+    db.execute(
+        "UPDATE dispositivos SET visto = ? WHERE id = ?",
+        (int(time.time() * 1000), dispositivo_id),
+    )
+    db.commit()
+    return jsonify({"ok": True})
 
 
 @app.get("/api/dispositivos")
