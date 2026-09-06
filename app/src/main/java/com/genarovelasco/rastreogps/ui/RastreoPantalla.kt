@@ -625,7 +625,7 @@ private fun AgregarEtiquetaCuerpo(
                 OutlinedTextField(
                     value = nombre,
                     onValueChange = { nombre = it },
-                    label = { Text("Ej. Mochila de Yuhe") },
+                    label = { Text("Ej. Mochila, llaves del coche…") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

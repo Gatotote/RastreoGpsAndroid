@@ -1,0 +1,19 @@
+# Servicio systemd de USUARIO para el servidor.
+# Copia a  ~/.config/systemd/user/rastreo-gps.service  y ajusta la ruta.
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now rastreo-gps
+#   loginctl enable-linger "$USER"      # que corra sin sesión / al arranque
+
+[Unit]
+Description=Servidor Rastreo GPS
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/RastreoGpsAndroid/servidor
+ExecStart=%h/RastreoGpsAndroid/servidor/.venv/bin/python app.py
+Environment=PUERTO=8080
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
