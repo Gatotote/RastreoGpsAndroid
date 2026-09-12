@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
         actualizarPermisos()
         setContent {
             val estado by viewModel.estado.collectAsStateWithLifecycle()
-            RastreoTheme {
+            RastreoTheme(oscuro = true) {
                 RastreoPantalla(
                     estado = estado,
                     permisosOk = permisosOk,

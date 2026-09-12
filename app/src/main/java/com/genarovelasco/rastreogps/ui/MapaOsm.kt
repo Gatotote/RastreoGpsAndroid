@@ -15,14 +15,20 @@ import androidx.core.graphics.drawable.toBitmap
 import com.genarovelasco.rastreogps.R
 import com.genarovelasco.rastreogps.data.DispositivoDto
 import com.genarovelasco.rastreogps.data.EtiquetaDto
+import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 
+sealed interface SeleccionMapa {
+    val id: String
+    data class Celular(override val id: String) : SeleccionMapa
+    data class Etiqueta(override val id: String) : SeleccionMapa
+}
+
 // Modo oscuro sin depender de teselas con API key: se filtran las de OSM.
-// Invierte la luminancia manteniendo el tono (calles claras, fondo oscuro,
-// parques verdosos, agua azulada). Filtro estándar de osmdroid para dark mode.
 private val FiltroOscuro = ColorMatrixColorFilter(
     floatArrayOf(
         -0.66f, -0.30f, -0.036f, 0f, 245f,
@@ -32,6 +38,11 @@ private val FiltroOscuro = ColorMatrixColorFilter(
     ),
 )
 
+private class MapaCallbacks {
+    var onMarcador: (SeleccionMapa) -> Unit = {}
+    var onMapaLibre: () -> Unit = {}
+}
+
 @Composable
 fun MapaOsm(
     dispositivos: List<DispositivoDto>,
@@ -39,11 +50,17 @@ fun MapaOsm(
     miId: String?,
     centrarId: String?,
     centroToken: Int,
-    oscuro: Boolean = false,
+    seleccion: SeleccionMapa? = null,
+    onMarcador: (SeleccionMapa) -> Unit = {},
+    onMapaLibre: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val control = remember { ControlMapa() }
+    val callbacks = remember { MapaCallbacks() }
+    callbacks.onMarcador = onMarcador
+    callbacks.onMapaLibre = onMapaLibre
+
     val mapa = remember {
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
@@ -52,15 +69,25 @@ fun MapaOsm(
             maxZoomLevel = 20.0
             controller.setZoom(15.0)
             controller.setCenter(GeoPoint(19.4326, -99.1332))
+            overlays.add(
+                MapEventsOverlay(
+                    object : MapEventsReceiver {
+                        override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
+                            callbacks.onMapaLibre()
+                            return false
+                        }
+
+                        override fun longPressHelper(p: GeoPoint?): Boolean = false
+                    },
+                ),
+            )
         }
     }
 
-    LaunchedEffect(oscuro) {
-        val fondo = if (oscuro) 0xFF1B1B21.toInt() else 0xFFEDE9E0.toInt()
-        mapa.setBackgroundColor(fondo)
+    LaunchedEffect(Unit) {
+        mapa.setBackgroundColor(0xFF1B1B21.toInt())
         mapa.overlayManager.tilesOverlay.apply {
-            setColorFilter(if (oscuro) FiltroOscuro else null)
-            // Sin la cuadrícula gris mientras cargan: se ve el fondo del mapa.
+            setColorFilter(FiltroOscuro)
             loadingBackgroundColor = Color.TRANSPARENT
             loadingLineColor = Color.TRANSPARENT
         }
@@ -80,28 +107,40 @@ fun MapaOsm(
             val conUbicacion = dispositivos.filter { it.lat != null && it.lng != null }
             conUbicacion.forEach { dispositivo ->
                 val punto = GeoPoint(dispositivo.lat!!, dispositivo.lng!!)
+                val elegido = seleccion is SeleccionMapa.Celular && seleccion.id == dispositivo.id
                 val marcador = Marker(view).apply {
                     position = punto
                     title = if (dispositivo.id == miId) "${dispositivo.nombre} (tú)" else dispositivo.nombre
-                    snippet = if (dispositivo.enLinea) "En línea" else "Sin señal"
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    infoWindow = null
                     val icono = if (dispositivo.id == miId) R.drawable.ic_marker_yo else R.drawable.ic_marker_otro
+                    val tam = if (elegido) 112 else 96
                     val drawable = ContextCompat.getDrawable(context, icono)
                     if (drawable != null) {
-                        icon = BitmapDrawable(context.resources, drawable.toBitmap(96, 96))
+                        icon = BitmapDrawable(context.resources, drawable.toBitmap(tam, tam))
+                    }
+                    setOnMarkerClickListener { _, _ ->
+                        callbacks.onMarcador(SeleccionMapa.Celular(dispositivo.id))
+                        true
                     }
                 }
                 view.overlays.add(marcador)
             }
             etiquetas.filter { it.lat != null && it.lng != null }.forEach { etiqueta ->
+                val elegido = seleccion is SeleccionMapa.Etiqueta && seleccion.id == etiqueta.id
                 val marcador = Marker(view).apply {
                     position = GeoPoint(etiqueta.lat!!, etiqueta.lng!!)
                     title = etiqueta.nombre
-                    snippet = etiqueta.vistoPorNombre?.let { "Vista por $it" } ?: "Sin detecciones"
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    infoWindow = null
+                    val tam = if (elegido) 104 else 88
                     val drawable = ContextCompat.getDrawable(context, R.drawable.ic_marker_etiqueta)
                     if (drawable != null) {
-                        icon = BitmapDrawable(context.resources, drawable.toBitmap(88, 88))
+                        icon = BitmapDrawable(context.resources, drawable.toBitmap(tam, tam))
+                    }
+                    setOnMarkerClickListener { _, _ ->
+                        callbacks.onMarcador(SeleccionMapa.Etiqueta(etiqueta.id))
+                        true
                     }
                 }
                 view.overlays.add(marcador)
@@ -113,15 +152,32 @@ fun MapaOsm(
                 control.inicial = true
             }
             if (centroToken != control.ultimoToken) {
-                val objetivo = conUbicacion.firstOrNull { it.id == centrarId } ?: propio
-                if (objetivo?.lat != null && objetivo.lng != null) {
-                    view.controller.animateTo(GeoPoint(objetivo.lat, objetivo.lng))
+                val punto = puntoDe(centrarId, conUbicacion, etiquetas) ?: propio?.let {
+                    if (it.lat != null && it.lng != null) GeoPoint(it.lat, it.lng) else null
+                }
+                if (punto != null) {
+                    view.controller.animateTo(punto)
                     control.ultimoToken = centroToken
                 }
             }
             view.invalidate()
         },
     )
+}
+
+private fun puntoDe(
+    id: String?,
+    dispositivos: List<DispositivoDto>,
+    etiquetas: List<EtiquetaDto>,
+): GeoPoint? {
+    if (id == null) return null
+    dispositivos.firstOrNull { it.id == id && it.lat != null && it.lng != null }?.let {
+        return GeoPoint(it.lat!!, it.lng!!)
+    }
+    etiquetas.firstOrNull { it.id == id && it.lat != null && it.lng != null }?.let {
+        return GeoPoint(it.lat!!, it.lng!!)
+    }
+    return null
 }
 
 private class ControlMapa {

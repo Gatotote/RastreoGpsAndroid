@@ -1,6 +1,5 @@
 package com.genarovelasco.rastreogps.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -8,7 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// Acento de marca: degradado coral -> naranja. Fijo en claro y oscuro.
+// Acento de marca: degradado coral -> naranja.
+// Oscuro por defecto: el mapa OSM lleva filtro oscuro y la hoja se monta encima.
 val RastreoGradiente = Brush.linearGradient(listOf(Color(0xFFFF6B6B), Color(0xFFFFB86C)))
 val RastreoGradienteInk = Color(0xFF1B1B20) // texto/icono encima del degradado
 
@@ -74,7 +74,7 @@ private val Claro = lightColorScheme(
 )
 
 @Composable
-fun RastreoTheme(oscuro: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun RastreoTheme(oscuro: Boolean = true, content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (oscuro) Oscuro else Claro,
         typography = RastreoTipografia,
