@@ -29,7 +29,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Imprime la URL a usar, p. ej. `http://192.168.1.20:8080`. Esa misma dirección
+Imprime la URL a usar, p. ej. `http://000.000.000.000:8080`. Esa misma dirección
 abre el panel web en el navegador.
 
 Para que arranque solo (Linux, systemd de usuario) hay un ejemplo en

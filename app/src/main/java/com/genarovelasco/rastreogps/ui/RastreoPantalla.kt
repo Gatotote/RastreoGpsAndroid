@@ -919,7 +919,7 @@ private fun AjustesPantalla(
                         value = servidor,
                         onValueChange = { servidor = it },
                         label = { Text("URL") },
-                        supportingText = { Text("Ejemplo: http://192.168.1.20:8080  (la IP que imprime el servidor en la PC)") },
+                        supportingText = { Text("Ejemplo: http://000.000.000.000:8080  (la IP que imprime el servidor en la PC)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )

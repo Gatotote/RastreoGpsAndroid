@@ -80,7 +80,7 @@ class Preferencias(private val context: Context) {
     }
 
     companion object {
-        const val URL_SERVIDOR_DEFAULT = "http://192.168.1.100:8080"
+        const val URL_SERVIDOR_DEFAULT = "http://000.000.000.000:8080"
         const val CODIGO_RED = "rastreo"
 
         fun modeloDispositivo(): String {
