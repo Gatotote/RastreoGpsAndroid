@@ -52,6 +52,12 @@ class Repositorio(
         registrarSiHaceFalta()
     }
 
+    /** Reintento manual: fuerza un nuevo registro y refresca la lista, sin esperar el sondeo automático. */
+    suspend fun reconectar() {
+        forzarReRegistro()
+        refrescar()
+    }
+
     suspend fun actualizarNombre(nombre: String) {
         preferencias.guardarNombre(nombre)
         forzarReRegistro()

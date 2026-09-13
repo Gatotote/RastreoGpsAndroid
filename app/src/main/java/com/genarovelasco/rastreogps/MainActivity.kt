@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -50,6 +51,14 @@ class MainActivity : ComponentActivity() {
         actualizarPermisos()
         setContent {
             val estado by viewModel.estado.collectAsStateWithLifecycle()
+
+            // El servicio en primer plano sigue el interruptor "compartiendoActivo":
+            // se apaga con "Terminar conexión" y se prende de nuevo al reanudar.
+            LaunchedEffect(permisosOk, estado.compartiendoActivo) {
+                if (!permisosOk) return@LaunchedEffect
+                if (estado.compartiendoActivo) iniciarServicio() else detenerServicio()
+            }
+
             RastreoTheme(oscuro = true) {
                 RastreoPantalla(
                     estado = estado,
@@ -62,6 +71,9 @@ class MainActivity : ComponentActivity() {
                     onEscanearEtiquetas = viewModel::asegurarEscaneo,
                     onRegistrarEtiqueta = viewModel::registrarEtiqueta,
                     onOlvidarEtiqueta = viewModel::olvidarEtiqueta,
+                    onReintentarConexion = viewModel::reintentarConexion,
+                    onTerminarConexion = viewModel::terminarConexion,
+                    onReanudarConexion = viewModel::reanudarConexion,
                 )
             }
         }
@@ -70,7 +82,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         actualizarPermisos()
-        if (permisosOk) iniciarServicio()
+        if (permisosOk && viewModel.estado.value.compartiendoActivo) iniciarServicio()
     }
 
     private fun solicitarPermisos() {
@@ -102,12 +114,16 @@ class MainActivity : ComponentActivity() {
 
     private fun actualizarPermisos() {
         permisosOk = tienePermiso(Manifest.permission.ACCESS_FINE_LOCATION)
-        if (permisosOk) iniciarServicio()
+        if (permisosOk && viewModel.estado.value.compartiendoActivo) iniciarServicio()
     }
 
     private fun iniciarServicio() {
         val intent = Intent(this, ServicioUbicacion::class.java)
         ContextCompat.startForegroundService(this, intent)
+    }
+
+    private fun detenerServicio() {
+        stopService(Intent(this, ServicioUbicacion::class.java))
     }
 
     private fun tienePermiso(permiso: String): Boolean =

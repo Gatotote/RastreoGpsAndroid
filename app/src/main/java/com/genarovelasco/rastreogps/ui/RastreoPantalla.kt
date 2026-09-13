@@ -105,6 +105,9 @@ fun RastreoPantalla(
     onEscanearEtiquetas: () -> Unit = {},
     onRegistrarEtiqueta: (String, String) -> Unit = { _, _ -> },
     onOlvidarEtiqueta: (String) -> Unit = {},
+    onReintentarConexion: () -> Unit = {},
+    onTerminarConexion: () -> Unit = {},
+    onReanudarConexion: () -> Unit = {},
 ) {
     if (!estado.aceptado) {
         PantallaAcepto(onAceptar)
@@ -124,6 +127,9 @@ fun RastreoPantalla(
             onGuardarNombre = onGuardarNombre,
             onGuardarServidor = onGuardarServidor,
             onCerrar = { mostrarAjustes = false },
+            onReintentarConexion = onReintentarConexion,
+            onTerminarConexion = onTerminarConexion,
+            onReanudarConexion = onReanudarConexion,
         )
         agregandoEtiqueta -> AgregarEtiquetaPantalla(
             estado = estado,
@@ -137,6 +143,7 @@ fun RastreoPantalla(
             onAjustes = { mostrarAjustes = true },
             onAgregarEtiqueta = { agregandoEtiqueta = true },
             onOlvidarEtiqueta = onOlvidarEtiqueta,
+            onReintentarConexion = onReintentarConexion,
         )
     }
 }
@@ -149,6 +156,7 @@ private fun MapaConHoja(
     onAjustes: () -> Unit,
     onAgregarEtiqueta: () -> Unit,
     onOlvidarEtiqueta: (String) -> Unit,
+    onReintentarConexion: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val hoja = rememberBottomSheetScaffoldState()
@@ -263,12 +271,18 @@ private fun MapaConHoja(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     shape = RoundedCornerShape(16.dp),
                 ) {
-                    Text(
-                        "Sin conexión al servidor. Revisa la IP en Ajustes.\n$error",
-                        modifier = Modifier.padding(12.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    Row(
+                        modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Sin conexión al servidor. Revisa la IP en Ajustes.\n$error",
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        TextButton(onClick = onReintentarConexion) { Text("Reintentar") }
+                    }
                 }
             }
         }
@@ -655,11 +669,13 @@ private fun PastillaEstado(
 ) {
     val n = estado.dispositivos.size
     val titulo = when {
+        !estado.compartiendoActivo -> "Detenido"
         !estado.conectado -> "Sin conexión"
         n == 0 -> "En vivo"
         n == 1 -> "En vivo · 1 celular"
         else -> "En vivo · $n celulares"
     }
+    val enVivo = estado.conectado && estado.compartiendoActivo
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -672,8 +688,8 @@ private fun PastillaEstado(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PuntoVivo(
-                color = if (estado.conectado) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
-                vivo = estado.conectado,
+                color = if (enVivo) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                vivo = enVivo,
             )
             Spacer(Modifier.width(10.dp))
             Text(
@@ -839,6 +855,9 @@ private fun AjustesPantalla(
     onGuardarNombre: (String) -> Unit,
     onGuardarServidor: (String) -> Unit,
     onCerrar: () -> Unit,
+    onReintentarConexion: () -> Unit,
+    onTerminarConexion: () -> Unit,
+    onReanudarConexion: () -> Unit,
 ) {
     val usuario = estado.usuario
     var nombre by rememberSaveable(usuario?.nombre) { mutableStateOf(usuario?.nombre.orEmpty()) }
@@ -910,6 +929,34 @@ private fun AjustesPantalla(
                         color = if (estado.conectado) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                     )
+                }
+            }
+            Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Conexión", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (estado.compartiendoActivo) {
+                            "Compartiendo tu ubicación con la red."
+                        } else {
+                            "Detenido. Este celular no envía ni recibe ubicaciones."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        TextButton(onClick = onReintentarConexion, modifier = Modifier.weight(1f)) {
+                            Text("Reintentar conexión")
+                        }
+                        if (estado.compartiendoActivo) {
+                            TextButton(onClick = onTerminarConexion, modifier = Modifier.weight(1f)) {
+                                Text("Terminar conexión", color = MaterialTheme.colorScheme.error)
+                            }
+                        } else {
+                            TextButton(onClick = onReanudarConexion, modifier = Modifier.weight(1f)) {
+                                Text("Reanudar")
+                            }
+                        }
+                    }
                 }
             }
         }

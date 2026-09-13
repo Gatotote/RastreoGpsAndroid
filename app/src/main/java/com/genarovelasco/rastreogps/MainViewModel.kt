@@ -27,6 +27,7 @@ data class UiEstado(
     val balizasDetectadas: List<BaliceDetectada> = emptyList(),
     val conectado: Boolean = false,
     val errorRed: String? = null,
+    val compartiendoActivo: Boolean = true,
     val dispositivoCentradoId: String? = null,
     val centroToken: Int = 0,
 )
@@ -52,8 +53,13 @@ class MainViewModel(
             _estado.update { it.copy(usuario = usuario) }
             repositorio.registrarSiHaceFalta()
             while (isActive) {
-                repositorio.refrescar()
+                if (preferencias.activo.first()) repositorio.refrescar()
                 delay(8_000)
+            }
+        }
+        viewModelScope.launch {
+            preferencias.activo.collect { activo ->
+                _estado.update { it.copy(compartiendoActivo = activo) }
             }
         }
         viewModelScope.launch {
@@ -106,6 +112,23 @@ class MainViewModel(
 
     fun refrescarAhora() {
         viewModelScope.launch { repositorio.refrescar() }
+    }
+
+    /** Reintenta la conexión ya, sin esperar el sondeo automático de 8 s. */
+    fun reintentarConexion() {
+        viewModelScope.launch { repositorio.reconectar() }
+    }
+
+    /** Deja de compartir ubicación: apaga el servicio en primer plano hasta que se reanude. */
+    fun terminarConexion() {
+        viewModelScope.launch { preferencias.establecerActivo(false) }
+    }
+
+    fun reanudarConexion() {
+        viewModelScope.launch {
+            preferencias.establecerActivo(true)
+            repositorio.reconectar()
+        }
     }
 
     /** El servicio ya escanea si hay permisos; esto solo asegura el escaneo mientras se ve la pantalla de agregar. */

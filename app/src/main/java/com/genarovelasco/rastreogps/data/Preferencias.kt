@@ -18,10 +18,20 @@ class Preferencias(private val context: Context) {
     private val claveNombre = stringPreferencesKey("nombre")
     private val claveServidor = stringPreferencesKey("servidor_url")
     private val claveAceptado = booleanPreferencesKey("aceptado")
+    private val claveActivo = booleanPreferencesKey("compartiendo_activo")
 
     /** true en cuanto el usuario pulsa "Acepto" en la primera pantalla. */
     val aceptado: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[claveAceptado] ?: false
+    }
+
+    /** false cuando el usuario pulsó "Terminar conexión"; deja de compartir hasta que reanude. */
+    val activo: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[claveActivo] ?: true
+    }
+
+    suspend fun establecerActivo(valor: Boolean) {
+        context.dataStore.edit { it[claveActivo] = valor }
     }
 
     val usuario: Flow<UsuarioLocal> = context.dataStore.data.map { prefs ->
